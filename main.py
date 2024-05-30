@@ -1,11 +1,15 @@
 import pandas as pd
+import unicodedata
 
-def read_csv_file(file_path):
-    data = pd.read_csv(file_path)
-    return data
 
 # Example usage
 file_path = "netflix_amazon_disney_titles.csv"
-data = read_csv_file(file_path)
+data = pd.read_csv(file_path)
 
-print(data.head())
+fifth_column = data.iloc[:, 4]
+split_data = fifth_column.str.split(',')
+
+for index, row in split_data.items():
+    for item in row:
+        item=unicodedata.normalize('NFD', item).encode('ascii', 'ignore')
+        print(item)
