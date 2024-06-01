@@ -6,6 +6,7 @@ class GrafoDirecionado:
         self.num_vertices = 0
         self.num_arestas = 0
 
+
     def adiciona_vertice(self, u):
         if u not in self.lista_adjacencias:
             self.lista_adjacencias[u] = []
@@ -28,3 +29,9 @@ class GrafoDirecionado:
                     nova_tupla = (to[0], novo_segundo_valor)
                     indice = self.lista_adjacencias[u].index(to)
                     self.lista_adjacencias[u][indice] = nova_tupla
+
+    def print_grafo(self):
+        for vertice in self.lista_adjacencias:
+            print(f"Vertice {vertice}:")
+            for aresta in self.lista_adjacencias[vertice]:
+                print(f"  -> {aresta[0]} (Peso: {aresta[1]})")
