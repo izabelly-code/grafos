@@ -35,3 +35,39 @@ class GrafoDirecionado:
             print(f"Vertice {vertice}:")
             for aresta in self.lista_adjacencias[vertice]:
                 print(f"  -> {aresta[0]} (Peso: {aresta[1]})")
+
+    def kosaraju(self):
+        self.visitados = {}
+      #prioridade, eu preciso saber a ordem de visita dos vertices, assim o ultimo sera o primeiro
+        self.pilha = []
+        self.componentes_conexas = []
+        for v in self.lista_adjacencias.keys():
+            self.visitados[v] = False
+        for v in self.lista_adjacencias.keys():
+            if not self.visitados[v]:
+               self.pdfs(v,self.pilha,self.visitados)
+
+        self.lista_adjacencias = self.transpor_grafo()
+        for v in self.lista_adjacencias.keys():
+            self.visitados[v] = False
+        while self.pilha:
+            v = self.pilha.pop()
+            if not self.visitados[v]:
+                self.componentes_conexas.append([])
+                self.dfs_rcon_comps(self.lista_adjacencias.keys(),v)
+        return self.componentes_conexas
+    
+    def pdfs(self,v,pilha,visitados):
+        visitados[v] = True
+        for u in self.lista_adjacencias[v]:
+            if not visitados[u]:
+                self.pdfs(u,pilha,visitados)
+        pilha.append(v)
+
+    def transpor_grafo(self):
+        transposto = defaultdict(list)
+        for v in self.lista_adjacencias.keys():
+            for u in self.lista_adjacencias[v]:
+                transposto[u].append
+
+        return transposto

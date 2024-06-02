@@ -3,6 +3,9 @@ import sys
 from GrafoDirecionado import GrafoDirecionado;
 from GrafoNaoDirecionado import GrafoNaoDirecionado;
 
+
+sys.setrecursionlimit(20000)
+
 sys.stdin.reconfigure(encoding='utf-8')
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -38,6 +41,7 @@ try:
         for linha in reader:
             contrucao_grafo_direcionado(linha)            
   
+    print("Questão 1: Construção do Grafo Direcionado e Não Direcionado")
     print("Grafo Direcionado construído com sucesso")
     print(f"Arestas:  {grafoDirecionado.num_arestas}")
     print(f"Vertices: {grafoDirecionado.num_vertices}")
@@ -45,6 +49,9 @@ try:
     print("Grafo Não Direcionado construído com sucesso")
     print(f"Arestas:  {grafoNaoDirecionado.num_arestas}")
     print(f"Vertices: {grafoNaoDirecionado.num_vertices}") 
+    print("Questão 2: Componentes Conexas")
+    quantidade_componentes = grafoNaoDirecionado.calcula_componentes_conexas()
+    print(f"Componentes Conexas do Grafo Não Direcionado {quantidade_componentes}")
     #grafoNaoDirecionado.print_grafo()
                
 except Exception as e:
