@@ -1,12 +1,15 @@
-from collections import defaultdict
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 import heapq
 import csv
 import matplotlib.pyplot as plt
 
 class Grafo:
     # Requisito 1: construção dos grafos
-    def __init__(self):
+    def __init__(self, direcionado=False, ponderado=True):
         self.lista_adjacencias = defaultdict(list)
+        self.direcionado = direcionado
+        self.ponderado = ponderado
         self.num_vertices = 0
         self.num_arestas = 0
 
@@ -56,7 +59,7 @@ class Grafo:
         print(f"Ordem do grafo: {self.num_vertices}")
         print(f"Tamanho do grafo: {self.num_arestas}")
 
-    # @staticmethod
+    @staticmethod
     def load_data(file_path):
         data = []
         with open(file_path, newline='', encoding='utf-8') as csvfile:
@@ -65,106 +68,123 @@ class Grafo:
                 data.append(row)
         return data
     
-    # @staticmethod
-    def from_csv(file_path, directed=True):
-        grafo = Grafo()
+    @staticmethod
+    def from_csv(file_path, direcionado=True):
+        grafo = Grafo(direcionado=direcionado, ponderado=True)
         with open(file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                diretor = row['director'].strip().upper()
-                elenco = [actor.strip().upper() for actor in row['cast'].split(',')]
-                if diretor:
-                    for ator in elenco:
-                        if directed:
+                diretor = row['director'].strip().upper() if row['director'] else ''
+                elenco = [actor.strip().upper() for actor in row['cast'].split(',')] if row['cast'] else []
+                if direcionado:
+                    if diretor:
+                        for ator in elenco:
                             grafo.adiciona_aresta(ator, diretor)
-                        else:
-                            for outro_ator in elenco:
-                                if ator != outro_ator:
-                                    grafo.adiciona_aresta(ator, outro_ator)
+                else:
+                    for ator in elenco:
+                        for outro_ator in elenco:
+                            if ator != outro_ator:
+                                grafo.adiciona_aresta(ator, outro_ator)
         return grafo
     
+    def salvar_lista_adjacencias(self, filename):
+        with open(filename, 'w', encoding='utf-8') as file:
+            for vertice, arestas in self.lista_adjacencias.items():
+                arestas_str = ' -> '.join(f"('{vizinho}', {peso})" for vizinho, peso in arestas)
+                file.write(f'{vertice}: {arestas_str}\n')
+    
     # Requisito 2: identificação de componentes
-    # componentes fortemente conectadas - grafo direcionado
-    def componentes_fortemente_conectadas(self):
-        index = 0
+    # componentes fortemente conectadas - grafo direcionado - algoritmo de Kosaraju
+    def inverte_grafo(self):
+        inverso = Grafo(direcionado=self.direcionado)
+
+        for u in self.lista_adjacencias:
+            for v, peso in self.lista_adjacencias[u]:
+                inverso.adiciona_aresta(v, u, peso)
+        return inverso
+    
+    def dfs(self, v, visitado, stack=None):
+        visitado[v] = True
+
+        for i, _ in self.lista_adjacencias[v]:
+            if not visitado[i]:
+                self.dfs(i, visitado, stack)
+
+        if stack is not None:
+            stack.append(v)
+    
+    def componentes_fortemente_conectadas_kosaraju(self):
         stack = []
-        indices = {}
-        lowlink = {}
-        on_stack = defaultdict(bool)
+        visitado = defaultdict(bool)
+        vertices = list(self.lista_adjacencias.keys())
+
+        for i in vertices:
+            if not visitado[i]:
+                self.dfs(i, visitado, stack)
+        
+        inverso = self.inverte_grafo()
+        
+        visitado = defaultdict(bool)
         scc = []
 
-        def strongconnect(v):
-            nonlocal index
-            indices[v] = index
-            lowlink[v] = index
-            index += 1
-            stack.append(v)
-            on_stack[v] = True
-
-            for (w, _) in self.lista_adjacencias[v]:
-                if w not in indices:
-                    strongconnect(w)
-                    lowlink[v] = min(lowlink[v], lowlink[w])
-                elif on_stack[w]:
-                    lowlink[v] = min(lowlink[v], indices[w])
-
-            if lowlink[v] == indices[v]:
-                component = []
-                while True:
-                    w = stack.pop()
-                    on_stack[w] = False
-                    component.append(w)
-                    if w == v:
-                        break
-                scc.append(component)
-
-        for v in self.lista_adjacencias:
-            if v not in indices:
-                strongconnect(v)
-
+        while stack:
+            i = stack.pop()
+            if not visitado[i]:
+                componente = []
+                inverso.dfs(i, visitado, componente)
+                scc.append(componente)
+        
         return scc
     
     # componentes conectadas - grafo nao-direcionado
+    def bfs(self, v, visitado):
+        
+        componente = []
+        queue = deque([v])
+
+        while queue:
+            node = queue.popleft()
+            if not visitado[node]:
+                visitado[node] = True
+                componente.append(node)
+                for vizinho, _ in self.lista_adjacencias[node]:
+                    if not visitado[vizinho]:
+                        queue.append(vizinho)
+
+        return componente
+
     def componentes_conectadas(self):
-        visited = defaultdict(bool)
-        components = []
+        visitado = defaultdict(bool)
+        componentes = []
+        vertices = list(self.lista_adjacencias.keys())
 
-        def dfs(v, component):
-            stack = [v]
-            while stack:
-                node = stack.pop()
-                if not visited[node]:
-                    visited[node] = True
-                    component.append(node)
-                    for (neighbour, _) in self.lista_adjacencias[node]:
-                        if not visited[neighbour]:
-                            stack.append(neighbour)
+        for v in vertices:
+            if not visitado[v]:
+                componente = self.bfs(v, visitado)
+                componentes.append(componente)
 
-        for v in self.lista_adjacencias:
-            if not visited[v]:
-                component = []
-                dfs(v, component)
-                components.append(component)
-
-        return components
+        return componentes
     
     # Requisito 3: árvore geradora mínima
     # algoritmo de Prim  
-    def arvore_geradora_minima(self, vertice):
-        mst = Grafo()
-        visited = set()
-        edges = [(0, vertice, vertice)]
-
-        while edges:
-            weight, u, v = heapq.heappop(edges)
-            if v not in visited:
-                visited.add(v)
-                mst.adiciona_aresta(u, v, weight)
-                for (neighbour, weight) in self.lista_adjacencias[v]:
-                    if neighbour not in visited:
-                        heapq.heappush(edges, (weight, v, neighbour))
-
-        return mst
+    def arvore_geradora_minima_prim(self, vertice):
+        mst = Grafo(direcionado=self.direcionado, ponderado=self.ponderado)
+        visitado = set()
+        arestas = [(0, vertice, vertice)]
+        custo_total = 0
+        
+        while arestas:
+            peso, u, v = heapq.heappop(arestas)
+            if v not in visitado:
+                visitado.add(v)
+                if u != v:
+                    mst.adiciona_aresta(u, v, peso)
+                    custo_total += peso
+                for vizinho, peso_vizinho in self.lista_adjacencias[v]:
+                    if vizinho not in visitado:
+                        heapq.heappush(arestas, (peso_vizinho, v, vizinho))
+        
+        return mst, custo_total
     
     # Requisito 4: centralidade de grau  
     def centralidade_grau(self):
@@ -180,13 +200,13 @@ class Grafo:
         plt.ylabel('Frequência')
         plt.show()
 
-    # Requisito 5: top-10 vértices com maior centralidade de grau 
+    # Requisito 5: top 10 vértices com maior centralidade de grau 
     def plota_top10_centralidade_grau(self):
         centralidade = self.centralidade_grau()
         top10 = dict(sorted(centralidade.items(), key=lambda item: item[1], reverse=True)[:10])
         plt.figure(figsize=(10, 5))
         plt.bar(top10.keys(), top10.values())
-        plt.title('Top-10 Vértices com Maior Centralidade de Grau')
+        plt.title('Top 10 Vértices com Maior Centralidade de Grau')
         plt.xlabel('Vértices')
         plt.ylabel('Centralidade de Grau')
         plt.show()
@@ -232,34 +252,37 @@ class Grafo:
         top10 = dict(sorted(centralidade.items(), key=lambda item: item[1], reverse=True)[:10])
         plt.figure(figsize=(10, 5))
         plt.bar(top10.keys(), top10.values())
-        plt.title('Top-10 Vértices com Maior Centralidade de Intermediação')
+        plt.title('Top 10 Vértices com Maior Centralidade de Intermediação')
         plt.xlabel('Vértices')
         plt.ylabel('Centralidade de Intermediação')
         plt.show()
 
     # Requisito 7: centralidade de proximidade
     def centralidade_proximidade(self):
-        def bfs_shortest_path(start):
-            visited = {start: 0}
-            queue = [start]
-            while queue:
-                node = queue.pop(0)
-                for neighbour, _ in self.lista_adjacencias[node]:
-                    if neighbour not in visited:
-                        visited[neighbour] = visited[node] + 1
-                        queue.append(neighbour)
-            return visited
+        def bfs_caminho_mais_curto(inicio):
+            visitados = {inicio: 0}
+            fila = [inicio]
+            while fila:
+                node = fila.pop(0)
+                for vizinho, _ in self.lista_adjacencias[node]:
+                    if vizinho not in visitados:
+                        visitados[vizinho] = visitados[node] + 1
+                        fila.append(vizinho)
+            return visitados
 
-        closeness = {}
+        proximidade = {}
+        num_vertices = len(self.lista_adjacencias)
+
         for v in self.lista_adjacencias:
-            shortest_paths = bfs_shortest_path(v)
-            total_distance = sum(shortest_paths.values())
-            if total_distance > 0 and len(self.lista_adjacencias) > 1:
-                closeness[v] = (len(shortest_paths) - 1) / total_distance
+            caminhos_mais_curtos = bfs_caminho_mais_curto(v)
+            distancia_total = sum(caminhos_mais_curtos.values())
+            if distancia_total > 0:
+                proximidade[v] = (num_vertices - 1) / distancia_total
             else:
-                closeness[v] = 0.0
+                proximidade[v] = 0.0
 
-        return closeness
+        return proximidade
+
 
     # Função para plotar os top-10 vértices com maior centralidade de proximidade
     def plota_top10_centralidade_proximidade(self):
@@ -267,7 +290,7 @@ class Grafo:
         top10 = dict(sorted(centralidade.items(), key=lambda item: item[1], reverse=True)[:10])
         plt.figure(figsize=(10, 5))
         plt.bar(top10.keys(), top10.values())
-        plt.title('Top-10 Vértices com Maior Centralidade de Proximidade')
+        plt.title('Top 10 vértices com maior centralidade de proximidade')
         plt.xlabel('Vértices')
-        plt.ylabel('Centralidade de Proximidade')
+        plt.ylabel('Centralidade de [roximidade')
         plt.show()
