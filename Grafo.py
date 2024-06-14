@@ -1,5 +1,4 @@
 from collections import defaultdict, deque
-from concurrent.futures import ThreadPoolExecutor
 import heapq
 import csv
 import matplotlib.pyplot as plt
@@ -188,7 +187,10 @@ class Grafo:
     
     # Requisito 4: centralidade de grau  
     def centralidade_grau(self):
-        centralidade = {v: self.grau_saida(v) for v in self.lista_adjacencias}
+        num_vertices = len(self.lista_adjacencias)
+        if num_vertices <= 1:
+            return {v: 0 for v in self.lista_adjacencias}
+        centralidade = {v: self.grau(v) / (2 * (num_vertices - 1)) for v in self.lista_adjacencias}
         return centralidade
     
     def plota_histograma_grau(self):
@@ -243,9 +245,19 @@ class Grafo:
                     delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w])
                 if w != s:
                     C[w] += delta[w]
-
+        
+        # Normalização da centralidade de intermediação
+        num_vertices = len(self.lista_adjacencias)
+        if self.direcionado:
+            normalizador = (num_vertices - 1) * (num_vertices - 2)
+        else:
+            normalizador = (num_vertices - 1) * (num_vertices - 2) / 2
+        
+        for v in C:
+            C[v] /= normalizador
+        
         return C
-    
+
     # Função para plotar os top-10 vértices com maior centralidade de intermediação
     def plota_top10_centralidade_intermediacao(self):
         centralidade = self.centralidade_intermediacao()
@@ -274,7 +286,9 @@ class Grafo:
         num_vertices = len(self.lista_adjacencias)
 
         for v in self.lista_adjacencias:
+            
             caminhos_mais_curtos = bfs_caminho_mais_curto(v)
+
             distancia_total = sum(caminhos_mais_curtos.values())
             if distancia_total > 0:
                 proximidade[v] = (num_vertices - 1) / distancia_total
@@ -292,5 +306,5 @@ class Grafo:
         plt.bar(top10.keys(), top10.values())
         plt.title('Top 10 vértices com maior centralidade de proximidade')
         plt.xlabel('Vértices')
-        plt.ylabel('Centralidade de [roximidade')
+        plt.ylabel('Centralidade de proximidade')
         plt.show()
